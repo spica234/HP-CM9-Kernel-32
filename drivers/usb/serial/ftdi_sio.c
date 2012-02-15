@@ -1356,7 +1356,8 @@ static int set_serial_info(struct tty_struct *tty,
 		goto check_and_exit;
 	}
 
-	if (new_serial.baud_base != priv->baud_base) {
+	if ((new_serial.baud_base != priv->baud_base) &&
+	    (new_serial.baud_base < 9600)) {
 	    	unlock_kernel();
 		return -EINVAL;
 	}
