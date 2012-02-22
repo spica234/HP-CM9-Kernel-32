@@ -181,7 +181,7 @@ static void android_work(struct work_struct *data)
 				dev->sw_connected ? connected : disconnected);
 	} else {
 		spin_unlock_irqrestore(&cdev->lock, flags);
-	}
+}
 }
 
 
@@ -243,7 +243,7 @@ static int acm_function_bind_config(struct android_usb_function *f, struct usb_c
 		if (ret) {
 			pr_err("Could not bind acm%u config\n", i);
 			break;
-	}
+}
 }
 
 	return ret;
@@ -357,7 +357,7 @@ static void rndis_function_cleanup(struct android_usb_function *f)
 {
 	kfree(f->config);
 	f->config = NULL;
-		}
+}
 
 static int rndis_function_bind_config(struct android_usb_function *f,
 					struct usb_configuration *c)
@@ -377,8 +377,8 @@ static int rndis_function_bind_config(struct android_usb_function *f,
 	ret = gether_setup(c->cdev->gadget, rndis->ethaddr);
 	if (ret) {
 		pr_err("%s: gether_setup failed\n", __func__);
-	return ret;
-}
+			return ret;
+		}
 
 	if (rndis->wceis) {
 		/* "Wireless" RNDIS; auto-detected by Windows */
@@ -444,7 +444,7 @@ static ssize_t rndis_wceis_store(struct device *dev,
 	if (sscanf(buf, "%d", &value) == 1) {
 		config->wceis = value;
 		return size;
-	}
+		}
 	return -EINVAL;
 }
 
@@ -558,7 +558,7 @@ static int mass_storage_function_init(struct android_usb_function *f,
 	config->common = common;
 	f->config = config;
 	return 0;
-}
+	}
 
 static void mass_storage_function_cleanup(struct android_usb_function *f)
 {
@@ -704,7 +704,7 @@ err_out:
 err_create:
 	kfree(f->dev_name);
 	return err;
-	}
+		}
 
 static void android_cleanup_functions(struct android_usb_function **functions)
 {
@@ -735,8 +735,8 @@ android_bind_enabled_functions(struct android_dev *dev,
 		if (ret) {
 			pr_err("%s: %s failed", __func__, f->name);
 			return ret;
-		}
-	}
+}
+}
 	return 0;
 }
 
@@ -749,8 +749,8 @@ android_unbind_enabled_functions(struct android_dev *dev,
 	list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
 		if (f->unbind_config)
 			f->unbind_config(f, c);
-		}
-	}
+}
+}
 
 static int android_enable_function(struct android_dev *dev, char *name)
 {
@@ -1066,7 +1066,7 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	if (!dev->connected) {
 		dev->connected = 1;
 		schedule_work(&dev->work);
-			}
+		}
 	else if (c->bRequest == USB_REQ_SET_CONFIGURATION && cdev->config) {
 		schedule_work(&dev->work);
 		}

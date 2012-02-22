@@ -157,9 +157,7 @@ void NvGyroAccelSetPowerRail(NvOdmServicesPmuHandle hPMUDevice, NvU32 Id, NvBool
 		if (settletime)
 			NvOdmOsWaitUS(settletime);  // wait to settle power
 	}
-	NvOdmServicesPmuClose(hPMUDevice);
 }
-
 
 /*
  * Get interrupt type and source.
@@ -418,7 +416,7 @@ NvOdmGyroAccelOpen(NvOdmGyroAccelHandle* hDevice)
 	const NvOdmPeripheralConnectivity *pConnectivity;
 	NvOdmGyroAccelHandle  hGyro;
 	NvU32    reg_val = 0 ;
-#if 1
+#if DEBUG_LOG
 	printk(" ## MPU3050 : [NvOdmGyroOpen:%d] \n",__LINE__) ;
 #endif
 
@@ -455,7 +453,7 @@ NvOdmGyroAccelOpen(NvOdmGyroAccelHandle* hDevice)
 				hGyro->nDevAddr = (pConnectivity->AddressList[i].Address << 1);
 				foundI2cModule = NV_TRUE;
 				foundGpio = NV_TRUE; //test
-#if 1
+#if DEBUG_LOG
 				printk("## MPU3050 I2CChannelId = %x. ## \n", hGyro->I2CChannelId);
 				printk("## MPU3050 i2c address = %x. ## \n", hGyro->nDevAddr);
 #endif
@@ -472,7 +470,7 @@ printk("## MPU3050 GPIOPinINT = %x. ## \n", hGyro->GPIOPinINT);
 break;*/
 			case NvOdmIoModule_Vdd:
 				hGyro->VddId = pConnectivity->AddressList[i].Address;
-#if 1
+#if DEBUG_LOG
 				printk("## MPU3050 NvOdmIoModule_VddId = %x. ## \n", hGyro->VddId);
 #endif
 				// Power on accelerometer according to Vddid
@@ -493,10 +491,8 @@ break;*/
 		printk("GyroAccel : NvGyroAccelI2COpen Error \n");
 		goto error;
 	};
-	printk(" ##1## GyroAccel : NvGyroAccelI2COpen check1 \n");
 	hGyro->RegsRead = NvGyroAccelI2CGetRegs;
 	hGyro->RegsWrite = NvGyroAccelI2CSetRegs;
-	printk(" ##2## GyroAccel : NvGyroAccelI2COpen check2 \n");
 	/*
 		if(NV_FALSE == NvGyroAccelConnectSemaphore(hGyro))
 		{

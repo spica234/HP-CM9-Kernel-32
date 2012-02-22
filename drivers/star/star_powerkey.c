@@ -31,7 +31,7 @@
 */
 
 //20100610, , sleep status gpio for modem [START]
-#define AP_SUSPEND_STATUS
+//#define AP_SUSPEND_STATUS
 //20100610, , sleep status gpio for modem [START]
 
 #define AP20_A03_POWERKEY_WAR
@@ -469,8 +469,13 @@ static int __init powerkey_probe(struct platform_device *pdev)
         printk(KERN_ERR "[star modem_chk] NvOdmGpioOpen Error \n");
         goto err_open_modem_chk_gpio_fail;
     }
+#ifdef CONFIG_MACH_STAR_TMUS
+    port = 'h'-'a';
+    pin = 2;
+#else
     port = 'r'-'a';
     pin = 0;
+#endif
     s_modemCheck.pinHandle = NvOdmGpioAcquirePinHandle(s_modemCheck.gpioHandle, 
                                                     port, pin);
     if (!s_modemCheck.pinHandle)

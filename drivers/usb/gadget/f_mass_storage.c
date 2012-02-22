@@ -1379,7 +1379,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 		memset(buf+2, 0, 10);	/* None of the fields are changeable */
 
 		if (!changeable_values) {
-			buf[2] = 0x04;	/* Write cache enable, */
+			buf[2] = 0x00;	/* Write cache disable, */
 					/* Read cache not disabled */
 					/* No cache retention priorities */
 			put_unaligned_be16(0xffff, &buf[4]);
@@ -2539,7 +2539,7 @@ static void handle_exception(struct fsg_common *common)
 		if (common->state == FSG_STATE_STATUS_PHASE)
 			common->state = FSG_STATE_IDLE;
 		spin_unlock_irq(&common->lock);
-		break;
+			break;
 
 	case FSG_STATE_RESET:
 		/* In case we were forced against our will to halt a
@@ -2687,7 +2687,7 @@ static void fsg_common_release(struct kref *ref);
 static void fsg_lun_release(struct device *dev)
 {
 	/* Nothing needs to be done */
-	}
+}
 
 static inline void fsg_common_get(struct fsg_common *common)
 {
@@ -2705,7 +2705,7 @@ static inline void fsg_common_put(struct fsg_common *common)
 static ssize_t print_switch_name(struct switch_dev *sdev, char *buf)
 {
 	return sprintf(buf, "%s\n", FUNCTION_NAME);
-	}
+}
 
 static ssize_t print_switch_state(struct switch_dev *sdev, char *buf)
 {
@@ -2729,7 +2729,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 	if (nluns < 1 || nluns > FSG_MAX_LUNS) {
 		dev_err(&gadget->dev, "invalid number of LUNs: %u\n", nluns);
 		return ERR_PTR(-EINVAL);
-}
+	}
 
 	/* Allocate? */
 	if (!common) {
@@ -2960,7 +2960,7 @@ static void fsg_common_release(struct kref *ref)
 			device_remove_file(&lun->dev, &dev_attr_file);
 			fsg_lun_close(lun);
 			device_unregister(&lun->dev);
-	}
+}
 
 		kfree(common->luns);
 }
@@ -3098,7 +3098,7 @@ static int fsg_bind_config(struct usb_composite_dev *cdev,
 	else
 		fsg_common_get(fsg->common);
 	return rc;
-	}
+}
 
 static inline int __deprecated __maybe_unused
 fsg_add(struct usb_composite_dev *cdev,

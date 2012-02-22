@@ -594,6 +594,16 @@ config CGROUP_FREEZER
 	  Provides a way to freeze and unfreeze all tasks in a
 	  cgroup.
 
+config CGROUP_TIMER_SLACK
+  tristate "Timer slack cgroup subsystem"
+  help
+    Provides a way of tasks grouping by timer slack value.
+    Introduces per cgroup timer slack value which will override
+    the default timer slack value once a task is attached to a
+    cgroup.
+    It's useful in mobile devices where certain background apps
+    are attached to a cgroup and combined wakeups are desired.
+
 config CGROUP_DEVICE
 	bool "Device controller for cgroups"
 	depends on CGROUPS && EXPERIMENTAL
@@ -1206,6 +1216,28 @@ config SLOB
 	   does not perform as well on large systems.
 
 endchoice
+
+config MMAP_ALLOW_UNINITIALIZED
+	bool "Allow mmapped anonymous memory to be uninitialized"
+	depends on EMBEDDED && !MMU
+	default n
+	help
+	  Normally, and according to the Linux spec, anonymous memory obtained
+	  from mmap() has it's contents cleared before it is passed to
+	  userspace.  Enabling this config option allows you to request that
+	  mmap() skip that if it is given an MAP_UNINITIALIZED flag, thus
+	  providing a huge performance boost.  If this option is not enabled,
+	  then the flag will be ignored.
+
+	  This is taken advantage of by uClibc's malloc(), and also by
+	  ELF-FDPIC binfmt's brk and stack allocator.
+
+	  Because of the obvious security issues, this option should only be
+	  enabled on embedded devices where you control what is run in
+	  userspace.  Since that isn't generally a problem on no-MMU systems,
+	  it is normally safe to say Y here.
+
+	  See Documentation/nommu-mmap.txt for more information.
 
 config PROFILING
 	bool "Profiling support (EXPERIMENTAL)"

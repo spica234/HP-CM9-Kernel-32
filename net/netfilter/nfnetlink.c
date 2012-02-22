@@ -195,7 +195,7 @@ static int __net_init nfnetlink_net_init(struct net *net)
 	net->nfnl_stash = nfnl;
 	rcu_assign_pointer(net->nfnl, nfnl);
 	return 0;
-}
+	}
 
 static void __net_exit nfnetlink_net_exit_batch(struct list_head *net_exit_list)
 {
@@ -206,7 +206,7 @@ static void __net_exit nfnetlink_net_exit_batch(struct list_head *net_exit_list)
 	synchronize_net();
 	list_for_each_entry(net, net_exit_list, exit_list)
 		netlink_kernel_release(net->nfnl_stash);
-	}
+}
 
 static struct pernet_operations nfnetlink_net_ops = {
 	.init		= nfnetlink_net_init,
