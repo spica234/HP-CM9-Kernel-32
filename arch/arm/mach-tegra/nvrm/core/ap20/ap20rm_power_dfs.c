@@ -30,6 +30,8 @@
  *
  */
 
+#include <linux/module.h>
+#include <linux/init.h>
 #include "ap20rm_power_dfs.h"
 #include "nvassert.h"
 #include "nvrm_drf.h"
@@ -38,6 +40,282 @@
 #include "ap20/aremc.h"
 #include "ap20/arclk_rst.h"
 #include "ap20/arapb_misc.h"
+
+//Spica OTF Start
+#ifdef CONFIG_SPICA_OTF
+
+#include <linux/spica.h>
+static struct proc_dir_entry *spica_dir;
+
+/* CPU1 ON MIN */
+#ifdef CONFIG_OTF_CPU1
+#define CPUON_PROCFS_NAME "mincpu1on"
+#define CPUON_PROCFS_SIZE 8
+static unsigned long procfs_buffer_size_cpuon = 0;
+static struct proc_dir_entry *CPUON_Proc_File;
+static char procfs_buffer_cpuon[CPUON_PROCFS_SIZE];
+int min_mincpu = 216000;  // Min Freq
+int max_mincpu = 1015000; // Max Freq
+int cpuon_procfile_read(char *buffer, char **buffer_location, off_t offset, int buffer_length, int *eof, void *data) {
+int ret;
+printk(KERN_INFO "procfile_read (/proc/spica/%s) called\n", CPUON_PROCFS_NAME);
+if (offset > 0) {
+	ret = 0;
+} else {
+	memcpy(buffer, procfs_buffer_cpuon, procfs_buffer_size_cpuon);
+	ret = procfs_buffer_size_cpuon;
+}
+return ret;
+}
+
+int cpuon_procfile_write(struct file *file, const char *buffer, unsigned long count, void *data) {
+int temp_cpuon;
+temp_cpuon = 0;
+if ( sscanf(buffer,"%d",&temp_cpuon) < 1 ) return procfs_buffer_size_cpuon;
+if ( temp_cpuon < min_mincpu || temp_cpuon > max_mincpu ) return procfs_buffer_size_cpuon;
+
+procfs_buffer_size_cpuon = count;
+if (procfs_buffer_size_cpuon > CPUON_PROCFS_SIZE ) {
+    procfs_buffer_size_cpuon = CPUON_PROCFS_SIZE;
+}
+if ( copy_from_user(procfs_buffer_cpuon, buffer, procfs_buffer_size_cpuon) ) {
+	printk(KERN_INFO "buffer_size error\n");
+	return -EFAULT;
+}
+sscanf(procfs_buffer_cpuon,"%u",&NVRM_CPU1_ON_MIN_KHZ);
+return procfs_buffer_size_cpuon;
+}
+
+static int __init init_cpuon_procsfs(void) {
+CPUON_Proc_File = spica_add(CPUON_PROCFS_NAME);
+if (CPUON_Proc_File == NULL) {
+	spica_remove(CPUON_PROCFS_NAME);
+	printk(KERN_ALERT "Error: Could not initialize /proc/spica/%s\n", CPUON_PROCFS_NAME);
+	return -ENOMEM;
+} else {
+	CPUON_Proc_File->read_proc = cpuon_procfile_read;
+	CPUON_Proc_File->write_proc = cpuon_procfile_write;
+	CPUON_Proc_File->mode = S_IFREG | S_IRUGO;
+	CPUON_Proc_File->uid = 0;
+	CPUON_Proc_File->gid = 0;
+	CPUON_Proc_File->size = 37;
+	sprintf(procfs_buffer_cpuon,"%d",NVRM_CPU1_ON_MIN_KHZ);
+	procfs_buffer_size_cpuon = strlen(procfs_buffer_cpuon);
+	printk(KERN_INFO "/proc/spica/%s created\n", CPUON_PROCFS_NAME);
+}
+return 0;
+}
+module_init(init_cpuon_procsfs);
+
+static void __exit cleanup_cpuon_procsfs(void) {
+spica_remove(CPUON_PROCFS_NAME);
+printk(KERN_INFO "/proc/spica/%s removed\n", CPUON_PROCFS_NAME);
+}
+module_exit(cleanup_cpuon_procsfs);
+#endif // OTF_CPU1
+
+/* DDR2 Min Khz */
+#ifdef CONFIG_OTF_DDR2MIN
+#define DDR2_PROCFS_NAME "ddr2_min_khz"
+#define DDR2_PROCFS_SIZE 6
+static unsigned long procfs_buffer_size_ddr2 = 0;
+static struct proc_dir_entry *DDR2_Proc_File;
+static char procfs_buffer_ddr2[DDR2_PROCFS_SIZE];
+int min_ddr2 = 10000; // DDR2 Min Khz
+int max_ddr2 = 55000; // DDR2 Max Khz
+int ddr2_procfile_read(char *buffer, char **buffer_location, off_t offset, int buffer_length, int *eof, void *data) {
+int ret;
+printk(KERN_INFO "procfile_read (/proc/spica/%s) called\n", DDR2_PROCFS_NAME);
+if (offset > 0) {
+	ret = 0;
+} else {
+	memcpy(buffer, procfs_buffer_ddr2, procfs_buffer_size_ddr2);
+	ret = procfs_buffer_size_ddr2;
+}
+return ret;
+}
+
+int ddr_procfile_write(struct file *file, const char *buffer, unsigned long count, void *data) {
+int temp_ddr2;
+temp_ddr2 = 0;
+if ( sscanf(buffer,"%d",&temp_ddr2) < 1 ) return procfs_buffer_size_ddr2;
+if ( temp_ddr2 < min_ddr2 || temp_ddr2 > max_ddr2 ) return procfs_buffer_size_ddr2;
+
+procfs_buffer_size_ddr2 = count;
+if (procfs_buffer_size_ddr2 > DDR2_PROCFS_SIZE ) {
+	procfs_buffer_size_ddr2 = DDR2_PROCFS_SIZE;
+	}
+if ( copy_from_user(procfs_buffer_ddr2, buffer, procfs_buffer_size_ddr2) ) {
+	printk(KERN_INFO "buffer_size error\n");
+	return -EFAULT;
+}
+sscanf(procfs_buffer_ddr2,"%u",&NVRM_AP20_DDR2_MIN_KHZ);
+return procfs_buffer_size_ddr2;
+}
+
+static int __init init_ddr2_procsfs(void) {
+DDR2_Proc_File = spica_add(DDR2_PROCFS_NAME);
+if (DDR2_Proc_File == NULL) {
+	spica_remove(DDR2_PROCFS_NAME);
+	printk(KERN_ALERT "Error: Could not initialize /proc/spica/%s\n", DDR2_PROCFS_NAME);
+	return -ENOMEM;
+} else {
+	DDR2_Proc_File->read_proc = ddr2_procfile_read;
+	DDR2_Proc_File->write_proc = ddr_procfile_write;
+	DDR2_Proc_File->mode = S_IFREG | S_IRUGO;
+	DDR2_Proc_File->uid = 0;
+	DDR2_Proc_File->gid = 0;
+	DDR2_Proc_File->size = 37;
+	sprintf(procfs_buffer_ddr2,"%d",NVRM_AP20_DDR2_MIN_KHZ);
+	procfs_buffer_size_ddr2 = strlen(procfs_buffer_ddr2);
+	printk(KERN_INFO "/proc/spica/%s created\n", DDR2_PROCFS_NAME);
+}
+return 0;
+}
+module_init(init_ddr2_procsfs);
+
+static void __exit cleanup_ddr2_procsfs(void) {
+spica_remove(DDR2_PROCFS_NAME);
+printk(KERN_INFO "/proc/spica/%s removed\n", DDR2_PROCFS_NAME);
+}
+module_exit(cleanup_ddr2_procsfs);
+#endif // OTF_DDR2MIN
+
+/* LPDDR2 Min Khz */
+#ifdef CONFIG_OTF_LPDDR2
+#define LPDDR2_PROCFS_NAME "lpddr2_min_khz"
+#define LPDDR2_PROCFS_SIZE 6
+static unsigned long procfs_buffer_size_lpddr2 = 0;
+static struct proc_dir_entry *LPDDR2_Proc_File;
+static char procfs_buffer_lpddr2[LPDDR2_PROCFS_SIZE];
+int min_lpddr2 = 7000; // LPDDR2 Min Khz
+int max_lpddr2 = 20000; // LPDDR2 Max Khz
+int lpddr2_procfile_read(char *buffer, char **buffer_location, off_t offset, int buffer_length, int *eof, void *data) {
+int ret;
+printk(KERN_INFO "procfile_read (/proc/spica/%s) called\n", LPDDR2_PROCFS_NAME);
+if (offset > 0) {
+	ret = 0;
+} else {
+	memcpy(buffer, procfs_buffer_lpddr2, procfs_buffer_size_lpddr2);
+	ret = procfs_buffer_size_lpddr2;
+}
+return ret;
+}
+
+int lpddr2_procfile_write(struct file *file, const char *buffer, unsigned long count, void *data) {
+int temp_lpddr2;
+temp_lpddr2 = 0;
+if ( sscanf(buffer,"%d",&temp_lpddr2) < 1 ) return procfs_buffer_size_lpddr2;
+if ( temp_lpddr2 < min_lpddr2 || temp_lpddr2 > max_lpddr2 ) return procfs_buffer_size_lpddr2;
+
+procfs_buffer_size_lpddr2 = count;
+if (procfs_buffer_size_lpddr2 > LPDDR2_PROCFS_SIZE ) {
+	procfs_buffer_size_lpddr2 = LPDDR2_PROCFS_SIZE;
+}
+if ( copy_from_user(procfs_buffer_lpddr2, buffer, procfs_buffer_size_lpddr2) ) {
+	printk(KERN_INFO "buffer_size error\n");
+	return -EFAULT;
+}
+sscanf(procfs_buffer_lpddr2,"%u",&NVRM_AP20_LPDDR2_MIN_KHZ);
+return procfs_buffer_size_lpddr2;
+}
+
+static int __init init_lpddr2_procsfs(void) {
+LPDDR2_Proc_File = spica_add(LPDDR2_PROCFS_NAME);
+if (LPDDR2_Proc_File == NULL) {
+	spica_remove(LPDDR2_PROCFS_NAME);
+	printk(KERN_ALERT "Error: Could not initialize /proc/spica/%s\n", LPDDR2_PROCFS_NAME);
+	return -ENOMEM;
+} else {
+	LPDDR2_Proc_File->read_proc = lpddr2_procfile_read;
+	LPDDR2_Proc_File->write_proc = lpddr2_procfile_write;
+	LPDDR2_Proc_File->mode = S_IFREG | S_IRUGO;
+	LPDDR2_Proc_File->uid = 0;
+	LPDDR2_Proc_File->gid = 0;
+	LPDDR2_Proc_File->size = 37;
+	sprintf(procfs_buffer_lpddr2,"%d",NVRM_AP20_LPDDR2_MIN_KHZ);
+	procfs_buffer_size_lpddr2 = strlen(procfs_buffer_lpddr2);
+}
+return 0;
+}
+module_init(init_lpddr2_procsfs);
+
+static void __exit cleanup_lpddr2_procsfs(void) {
+spica_remove(LPDDR2_PROCFS_NAME);
+printk(KERN_INFO "/proc/spica/%s removed\n", LPDDR2_PROCFS_NAME);
+}
+module_exit(cleanup_lpddr2_procsfs);
+#endif // OTF_LPDDR2
+
+/* Suspend Core */
+#ifdef CONFIG_OTF_SCMV
+#define SUSPENDMV_PROCFS_NAME "suspend_core_mv"
+#define SUSPENDMV_PROCFS_SIZE 8
+static unsigned long procfs_buffer_size_scmv = 0;
+static struct proc_dir_entry *SUSPENDMV_Proc_File;
+static char procfs_buffer_scmv[SUSPENDMV_PROCFS_SIZE];
+int min_scmv = 600;  // Suspend Core Min mV
+int max_scmv = 1100; // Suspend Core Max mV
+int scmv_procfile_read(char *buffer, char **buffer_location, off_t offset, int buffer_length, int *eof, void *data) {
+int ret;
+printk(KERN_INFO "procfile_read (/proc/spica/%s) called\n", SUSPENDMV_PROCFS_NAME);
+	if (offset > 0) {
+ret = 0;
+} else {
+	memcpy(buffer, procfs_buffer_scmv, procfs_buffer_size_scmv);
+	ret = procfs_buffer_size_scmv;
+}
+return ret;
+}
+
+int scmv_procfile_write(struct file *file, const char *buffer, unsigned long count, void *data) {
+int temp_scmv;
+temp_scmv = 0;
+/* CAUTION: Don't change below 2 lines */
+/* [Start] */
+if ( sscanf(buffer,"%d",&temp_scmv) < 1 ) return procfs_buffer_size_scmv;
+if ( temp_scmv < min_scmv || temp_scmv > max_scmv ) return procfs_buffer_size_scmv;
+/* [End] */
+	procfs_buffer_size_scmv = count;
+if (procfs_buffer_size_scmv > SUSPENDMV_PROCFS_SIZE ) {
+	procfs_buffer_size_scmv = SUSPENDMV_PROCFS_SIZE;
+}
+if ( copy_from_user(procfs_buffer_scmv, buffer, procfs_buffer_size_scmv) ) {
+	printk(KERN_INFO "buffer_size error\n");
+	return -EFAULT;
+}
+sscanf(procfs_buffer_scmv,"%u",&NVRM_AP20_SUSPEND_CORE_MV);
+return procfs_buffer_size_scmv;
+}
+
+static int __init init_scmv_procsfs(void) {
+SUSPENDMV_Proc_File = spica_add(SUSPENDMV_PROCFS_NAME);
+if (SUSPENDMV_Proc_File == NULL) {
+	spica_remove(SUSPENDMV_PROCFS_NAME);
+	printk(KERN_ALERT "Error: Could not initialize /proc/spica/%s\n", SUSPENDMV_PROCFS_NAME);
+	return -ENOMEM;
+} else {
+	SUSPENDMV_Proc_File->read_proc = scmv_procfile_read;
+	SUSPENDMV_Proc_File->write_proc = scmv_procfile_write;
+	SUSPENDMV_Proc_File->mode = S_IFREG | S_IRUGO;
+	SUSPENDMV_Proc_File->uid = 0;
+	SUSPENDMV_Proc_File->gid = 0;
+	SUSPENDMV_Proc_File->size = 37;
+	sprintf(procfs_buffer_scmv,"%d",NVRM_AP20_SUSPEND_CORE_MV);
+	procfs_buffer_size_scmv = strlen(procfs_buffer_scmv);
+	printk(KERN_INFO "/proc/spica/%s created\n", SUSPENDMV_PROCFS_NAME);
+}
+return 0;
+}
+module_init(init_scmv_procsfs);
+
+static void __exit cleanup_scmv_procsfs(void) {
+spica_remove(SUSPENDMV_PROCFS_NAME);
+printk(KERN_INFO "/proc/spica/%s removed\n", SUSPENDMV_PROCFS_NAME);
+}
+module_exit(cleanup_scmv_procsfs);
+#endif // OTF_SCMV
+#endif // SPICA_OTF
 
 /*****************************************************************************/
 
@@ -98,7 +376,7 @@ NvError NvRmPrivAp20EmcMonitorsInit(NvRmDfs* pDfs)
     /*
      * EMC power management monitor belongs to EMC module - just reset it,
      * and do not touch anything else in EMC.
-     */ 
+     */
     RegValue = NV_EMC_REGR(pEmcRegs, STAT_CONTROL);
     RegValue = NV_FLD_SET_DRF_DEF(EMC, STAT_CONTROL, PWR_GATHER, RST, RegValue);
     NV_EMC_REGW(pEmcRegs, STAT_CONTROL, RegValue);
@@ -149,7 +427,7 @@ NvRmPrivAp20EmcMonitorsStart(
     /*
      * Start EMC power monitor for the next sample period: clear EMC counters,
      * set sample interval limit in EMC cycles, enable monitoring. Monitor is
-     * counting EMC 1x clock cycles while any memory access is detected. 
+     * counting EMC 1x clock cycles while any memory access is detected.
      */
     SavedRegValue = NV_EMC_REGR(pEmcRegs, STAT_CONTROL);
     RegValue = NV_FLD_SET_DRF_DEF(EMC, STAT_CONTROL, PWR_GATHER, CLEAR, SavedRegValue);
@@ -188,7 +466,7 @@ NvRmPrivAp20EmcMonitorsRead(
     RegValue = NV_EMC_REGR(pEmcRegs, STAT_PWR_COUNT);
     RegValue = NV_DRF_VAL(EMC, STAT_PWR_COUNT, PWR_COUNT, RegValue) << CountShift;
 
-    pIdleData->Readings[NvRmDfsClockId_Emc] = 
+    pIdleData->Readings[NvRmDfsClockId_Emc] =
         (TotalClocks > RegValue) ? (TotalClocks - RegValue) : 0;
 }
 
@@ -244,8 +522,8 @@ NvRmPrivAp20DttPolicyUpdate(
         s_CpuThrottleMinKHz =
             NvRmPrivGetSocClockLimits(NvRmModuleID_Cpu)->MaxKHz /
             NVRM_DTT_RATIO_MAX;
-        NV_ASSERT(s_CpuThrottleMaxKHz > s_CpuThrottleMinKHz); 
-        NV_ASSERT(s_CpuThrottleMinKHz > NVRM_DTT_CPU_DELTA_KHZ); 
+        NV_ASSERT(s_CpuThrottleMaxKHz > s_CpuThrottleMinKHz);
+        NV_ASSERT(s_CpuThrottleMinKHz > NVRM_DTT_CPU_DELTA_KHZ);
 
         s_CpuThrottleKHz = s_CpuThrottleMaxKHz;
 
@@ -351,7 +629,7 @@ NvRmPrivStarDttPolicyUpdate(
                 NvRmPmuSetHwPowerOffConfig(s_hRmGlobal, NV_TRUE);
             }
             break;
-            
+
         case NvRmDttAp20PolicyRange_FreeRunning:
         case NvRmDttAp20PolicyRange_LimitVoltage:
         default:
@@ -390,7 +668,7 @@ NvRmPrivAp20DttClockUpdate(
         case NvRmDttAp20PolicyRange_ThrottleDown:
             if (pDttPolicy->UpdateFlag)
                 s_CpuThrottleKHz -= NVRM_DTT_CPU_DELTA_KHZ;
-            s_CpuThrottleKHz = NV_MAX(s_CpuThrottleKHz, s_CpuThrottleMinKHz); 
+            s_CpuThrottleKHz = NV_MAX(s_CpuThrottleKHz, s_CpuThrottleMinKHz);
             break;
 
         // No throttling by default (just reset throttling limit to max)
@@ -407,7 +685,7 @@ NvRmPrivAp20DttClockUpdate(
 
 /*****************************************************************************/
 
-NvRmPmRequest 
+NvRmPmRequest
 NvRmPrivAp20GetPmRequest(
     NvRmDeviceHandle hRmDevice,
     const NvRmDfsSampler* pCpuSampler,
@@ -415,7 +693,14 @@ NvRmPrivAp20GetPmRequest(
 {
     // Assume initial slave CPU1 On request
     static NvRmPmRequest s_LastPmRequest = (NvRmPmRequest_CpuOnFlag | 0x1);
+
+#ifdef CONFIG_OTF_CPU1
+    NvRmFreqKHz s_Cpu1OnMinKHz = 0;
+    NvRmFreqKHz s_Cpu1OffMaxKHz = 0;
+#else
     static NvRmFreqKHz s_Cpu1OnMinKHz = 0, s_Cpu1OffMaxKHz = 0;
+#endif // OTF_CPU1
+
     static NvU32 s_Cpu1OnPendingCnt = 0, s_Cpu1OffPendingCnt = 0;
 
     NvU32 t;
@@ -435,11 +720,17 @@ NvRmPrivAp20GetPmRequest(
         NvRmFreqKHz MaxKHz =
             NvRmPrivGetSocClockLimits(NvRmModuleID_Cpu)->MaxKHz;
 
+#ifdef CONFIG_OTF_CPU1
+        s_Cpu1OnMinKHz = NVRM_CPU1_ON_MIN_KHZ;
+        s_Cpu1OffMaxKHz = NVRM_CPU1_OFF_MAX_KHZ;
+#else
         s_Cpu1OnMinKHz = NVRM_CPU1_ON_MIN_KHZ ?
                          NVRM_CPU1_ON_MIN_KHZ : (MaxKHz / 3);
         s_Cpu1OffMaxKHz = NVRM_CPU1_OFF_MAX_KHZ ?
                           NVRM_CPU1_OFF_MAX_KHZ : (2 * MaxKHz / 3);
         NV_ASSERT(s_Cpu1OnMinKHz < s_Cpu1OffMaxKHz);
+#endif // OTF_CPU1
+
     }
 
     // Timestamp
@@ -449,11 +740,11 @@ NvRmPrivAp20GetPmRequest(
 
     /*
      * Request OS kernel to turn CPU1 Off if all of the following is true:
-     * (a) CPU frequency is below OnMin threshold, 
+     * (a) CPU frequency is below OnMin threshold,
      * (b) CPU1 is actually On
      *
      * Request OS kernel to turn CPU1 On if all of the following is true:
-     * (a) CPU frequency is above OffMax threshold 
+     * (a) CPU frequency is above OffMax threshold
      * (b) CPU1 is actually Off
      */
     if (CpuLoadGaugeKHz < s_Cpu1OnMinKHz)

@@ -758,6 +758,7 @@ b_epilogue:
 			update_on_xread(ctx);
 			emit(ARM_MOV_R(r_A, r_X), ctx);
 			break;
+#if 0
 		case BPF_S_ANC_PROTOCOL:
 			/* A = ntohs(skb->protocol) */
 			ctx->seen |= SEEN_SKB;
@@ -767,6 +768,7 @@ b_epilogue:
 			emit(ARM_LDRH_I(r_scratch, r_skb, off), ctx);
 			emit_swap16(r_A, r_scratch, ctx);
 			break;
+#endif
 		case BPF_S_ANC_CPU:
 			/* r_scratch = current_thread_info() */
 			OP_IMM3(ARM_BIC, r_scratch, ARM_SP, THREAD_SIZE - 1, ctx);
@@ -795,12 +797,14 @@ b_epilogue:
 			off = offsetof(struct sk_buff, mark);
 			emit(ARM_LDR_I(r_A, r_skb, off), ctx);
 			break;
+#if 0
 		case BPF_S_ANC_RXHASH:
 			ctx->seen |= SEEN_SKB;
 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff, rxhash) != 4);
 			off = offsetof(struct sk_buff, rxhash);
 			emit(ARM_LDR_I(r_A, r_skb, off), ctx);
 			break;
+#endif
 		case BPF_S_ANC_QUEUE:
 			ctx->seen |= SEEN_SKB;
 			BUILD_BUG_ON(FIELD_SIZEOF(struct sk_buff,

@@ -15,8 +15,15 @@
 #include <linux/console.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
-
 #include "power.h"
+
+#ifdef CONFIG_OTF_MAXSCOFF
+#include <linux/earlysuspend.h>
+#include <linux/cpufreq.h>
+#include <linux/spica.h>
+//extern unsigned int oldmaxclock;
+extern unsigned int oldminclock;
+#endif // OTF_MAXSCOFF
 
 const char *const pm_states[PM_SUSPEND_MAX] = {
 #ifdef CONFIG_EARLYSUSPEND
@@ -166,6 +173,10 @@ static int suspend_enter(suspend_state_t state)
 
 	arch_suspend_enable_irqs();
 	BUG_ON(irqs_disabled());
+
+#ifdef CONFIG_OTF_MAXSCOFF
+ oldminclock = 216000;
+#endif
 
  Enable_cpus:
 	enable_nonboot_cpus();

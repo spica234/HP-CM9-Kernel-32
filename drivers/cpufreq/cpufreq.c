@@ -28,7 +28,6 @@
 #include <linux/cpu.h>
 #include <linux/completion.h>
 #include <linux/mutex.h>
-#include <linux/earlysuspend.h>
 
 #define dprintk(msg...) cpufreq_debug_printk(CPUFREQ_DEBUG_CORE, \
 						"cpufreq-core", msg)
@@ -38,7 +37,7 @@
 #include "../nvrm/core/common/nvrm_power_dfs.h"
 #include <nvrm_diag.h>
 
-/* 
+/*
  * TEGRA AP20 CPU OC/UV Hack by Cpasjuste @ https://github.com/Cpasjuste/tegra_lg_p990_kernel_oc_uv
  * Inspired by mblaster @ https://github.com/mblaster/linux_2.6.32_folio100
 */
@@ -48,6 +47,76 @@ extern NvRmCpuShmoo fake_CpuShmoo;  // Stored faked CpuShmoo values
 extern NvRmDfs *fakeShmoo_Dfs;
 #endif // CONFIG_FAKE_SHMOO
 
+//Spica OTF Start
+#ifdef CONFIG_OTF_MAXSCOFF
+#include <linux/spica.h>
+#include <linux/earlysuspend.h>
+#include <linux/sched.h>
+#define MAXSM_PROCFS_NAME "screenoff_maxcpufreq"
+#define MAXSM_PROCFS_SIZE 7
+static struct proc_dir_entry *MAXSM_Proc_File;
+static char procfs_buffer_sm[MAXSM_PROCFS_SIZE];
+static unsigned long procfs_buffer_size_sm = 0;
+int min_smfreq = 216000; // Min Screen Off Freq
+int max_smfreq = 816000; // Max Screen Off Freq
+int maxsm_procfile_read(char *buffer, char **buffer_location, off_t offset, int buffer_length, int *eof, void *data) {
+int ret;
+printk(KERN_INFO "procfile_read (/proc/spica/%s) called\n", MAXSM_PROCFS_NAME);
+if (offset > 0) {
+    ret = 0;
+} else {
+    memcpy(buffer, procfs_buffer_sm, procfs_buffer_size_sm);
+    ret = procfs_buffer_size_sm;
+}
+return ret;
+}
+
+int maxsm_procfile_write(struct file *file, const char *buffer, unsigned long count, void *data) {
+int temp_sm;
+temp_sm = 0;
+if ( sscanf(buffer,"%d",&temp_sm) < 1 ) return procfs_buffer_size_sm;
+if ( temp_sm < min_smfreq || temp_sm > max_smfreq ) return procfs_buffer_size_sm;
+
+procfs_buffer_size_sm = count;
+if (procfs_buffer_size_sm > MAXSM_PROCFS_SIZE ) {
+    procfs_buffer_size_sm = MAXSM_PROCFS_SIZE;
+}
+if ( copy_from_user(procfs_buffer_sm, buffer, procfs_buffer_size_sm) ) {
+printk(KERN_INFO "buffer_size error\n");
+return -EFAULT;
+}
+sscanf(procfs_buffer_sm,"%u",&SCREENOFFFREQ);
+return procfs_buffer_size_sm;
+}
+
+static int __init init_maxsm_procsfs(void) {
+MAXSM_Proc_File = spica_add(MAXSM_PROCFS_NAME);
+if (MAXSM_Proc_File == NULL) {
+    spica_remove(MAXSM_PROCFS_NAME);
+    printk(KERN_ALERT "Error: Could not initialize /proc/spica/%s\n", MAXSM_PROCFS_NAME);
+    return -ENOMEM;
+} else {
+    MAXSM_Proc_File->read_proc = maxsm_procfile_read;
+    MAXSM_Proc_File->write_proc = maxsm_procfile_write;
+    MAXSM_Proc_File->mode = S_IFREG | S_IRUGO;
+    MAXSM_Proc_File->uid = 0;
+    MAXSM_Proc_File->gid = 0;
+    MAXSM_Proc_File->size = 37;
+    sprintf(procfs_buffer_sm,"%d",SCREENOFFFREQ);
+    procfs_buffer_size_sm = strlen(procfs_buffer_sm);
+    printk(KERN_INFO "/proc/spica/%s created\n", MAXSM_PROCFS_NAME);
+}
+return 0;
+}
+module_init(init_maxsm_procsfs);
+
+static void __exit cleanup_maxsm_procsfs(void) {
+spica_remove(MAXSM_PROCFS_NAME);
+printk(KERN_INFO "/proc/spica/%s removed\n", MAXSM_PROCFS_NAME);
+}
+module_exit(cleanup_maxsm_procsfs);
+#endif // OTF_MAXSCOFF
+
 /**
  * The "cpufreq driver" - the arch- or hardware-dependent low
  * level driver of CPUFreq support, and its spinlock. This lock
@@ -55,6 +124,7 @@ extern NvRmDfs *fakeShmoo_Dfs;
  */
 static struct cpufreq_driver *cpufreq_driver;
 static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data);
+#define CONFIG_HOTPLUG_CPU
 #ifdef CONFIG_HOTPLUG_CPU
 /* This one keeps track of the previously set governor of a removed CPU */
 static DEFINE_PER_CPU(char[CPUFREQ_NAME_LEN], cpufreq_cpu_governor);
@@ -296,6 +366,7 @@ static inline void cpufreq_debug_disable_ratelimit(void) { return; }
  * systems as each CPU might be scaled differently. So, use the arch
  * per-CPU loops_per_jiffy value wherever possible.
  */
+#define CONFIG_SMP
 #ifndef CONFIG_SMP
 static unsigned long l_p_j_ref;
 static unsigned int  l_p_j_ref_freq;
@@ -715,10 +786,10 @@ static ssize_t show_UV_mV_table(struct cpufreq_policy *policy, char *buf)
 
 static ssize_t store_UV_mV_table(struct cpufreq_policy *policy, const char *buf, size_t count)
 {
-	int ret = sscanf( buf, "%i %i %i %i %i %i %i %i",	 &FakeShmoo_UV_mV_Ptr[7], &FakeShmoo_UV_mV_Ptr[6], 
-								&FakeShmoo_UV_mV_Ptr[5], &FakeShmoo_UV_mV_Ptr[4], 
-								&FakeShmoo_UV_mV_Ptr[3], &FakeShmoo_UV_mV_Ptr[2], 
-								&FakeShmoo_UV_mV_Ptr[1], &FakeShmoo_UV_mV_Ptr[0] );
+        int ret = sscanf( buf, "%i %i %i %i %i %i %i %i ", &FakeShmoo_UV_mV_Ptr[7], &FakeShmoo_UV_mV_Ptr[6],
+                                                           &FakeShmoo_UV_mV_Ptr[5], &FakeShmoo_UV_mV_Ptr[4],
+                                                           &FakeShmoo_UV_mV_Ptr[3], &FakeShmoo_UV_mV_Ptr[2],
+                                                           &FakeShmoo_UV_mV_Ptr[1], &FakeShmoo_UV_mV_Ptr[0] );
 	if (ret != 1)
 		return -EINVAL;
 
@@ -1065,6 +1136,7 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 	unsigned int j;
 #ifdef CONFIG_HOTPLUG_CPU
 	int sibling;
+//struct cpufreq_policy *cp=NULL;
 #endif
 
 	if (cpu_is_offline(cpu))
@@ -1124,9 +1196,10 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
 struct cpufreq_policy *cp;
 	for_each_online_cpu(sibling) {
 		cp = per_cpu(cpufreq_cpu_data, sibling);
-		dprintk("found sibling %d\n", sibling);
-		if (cp && cp->governor &&
-		    (cpumask_test_cpu(cpu, cp->related_cpus))) {
+
+		dprintk("found sibling CPU, copying policy\n");
+		if (cp != NULL) {
+		dprintk("found sibling CPU, copying policy\n");
 			policy->governor = cp->governor;
 				policy->min = cp->min;
 				policy->max = cp->max;
@@ -1137,12 +1210,11 @@ struct cpufreq_policy *cp;
 		}
 	}
 #endif
-	if (!found)
-	{
+	if (!found) {
 		dprintk("failed to find sibling CPU, falling back to defaults\n");
 		policy->governor = CPUFREQ_DEFAULT_GOVERNOR;
 	}
-	
+
 	/* call driver. From then on the cpufreq must be able
 	 * to accept all calls to ->verify and ->setpolicy for this CPU
 	 */
@@ -1181,7 +1253,8 @@ struct cpufreq_policy *cp;
 		goto err_out_unregister;
 
 	unlock_policy_rwsem_write(cpu);
-
+free_cpumask_var(policy->cpus);
+free_cpumask_var(policy->related_cpus);
 	kobject_uevent(&policy->kobj, KOBJ_ADD);
 	module_put(cpufreq_driver->owner);
 	dprintk("initialization complete\n");
@@ -2136,60 +2209,313 @@ int cpufreq_unregister_driver(struct cpufreq_driver *driver)
 }
 EXPORT_SYMBOL_GPL(cpufreq_unregister_driver);
 
-#ifdef CONFIG_CPUFREQ_SCROFF_LIMIT
+#ifdef CONFIG_OTF_MAXSCOFF
+unsigned int oldmaxclock;
+unsigned int oldminclock;
+unsigned int oldmincpu1on;
+unsigned int oldgpufreq;
+unsigned int oldvdefreq;
+unsigned int oldpadms;
+unsigned int oldcoremv;
+unsigned int oldlowcpu;
+unsigned int oldddr2;
+unsigned int oldlpddr2;
+unsigned int oldavpfreq;
 
-unsigned int prev_max_freq;
-unsigned int prev_min_freq;
-
-static void powersave_early_suspend(struct early_suspend *handler)
-{
+static void powersave_early_suspend(struct early_suspend *handler) {
 	int cpu;
-
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *cpu_policy, new_policy;
-
 		cpu_policy = cpufreq_cpu_get(cpu);
 		if (!cpu_policy)
 			continue;
 		if (cpufreq_get_policy(&new_policy, cpu))
 			goto out;
-		prev_max_freq = cpu_policy->max;
-		prev_min_freq = cpu_policy->min;
-		new_policy.max = CONFIG_CPUFREQ_SCROFF_LIMIT_VALUE;
-		new_policy.min = cpu_policy->cpuinfo.min_freq;
-		printk(KERN_INFO
-			"%s: set cpu%d freq in the %u-%u KHz range\n",
-			__func__, cpu, new_policy.min, new_policy.max);
-		__cpufreq_set_policy(cpu_policy, &new_policy);
-		cpu_policy->user_policy.policy = cpu_policy->policy;
-		cpu_policy->user_policy.governor = cpu_policy->governor;
-out:
-		cpufreq_cpu_put(cpu_policy);
+#ifdef CONFIG_OTF_AVP
+			oldavpfreq = AVPFREQ;
+#endif
+#ifdef CONFIG_OTF_CPU1
+			oldmincpu1on = NVRM_CPU1_ON_MIN_KHZ;
+			oldpadms = NVRM_CPU1_OFF_PENDING_MS;
+#endif
+#ifdef CONFIG_OTF_GPU
+			oldgpufreq = GPUFREQ;
+#endif
+#ifdef CONFIG_OTF_VDE
+			oldvdefreq = VDEFREQ;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			oldcoremv= NVRM_AP20_LOW_CORE_MV;
+			oldlowcpu = NVRM_AP20_LOW_CPU_MV;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			oldddr2 = NVRM_AP20_DDR2_MIN_KHZ;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			oldlpddr2 = NVRM_AP20_LPDDR2_MIN_KHZ;
+#endif
+			oldmaxclock = cpu_policy->max;
+			oldminclock = cpu_policy->min;
+			new_policy.max = SCREENOFFFREQ;
+			new_policy.min = oldminclock;
+			__cpufreq_set_policy(cpu_policy, &new_policy);
+			cpu_policy->user_policy.policy = cpu_policy->policy;
+#ifdef CONFIG_OTF_PSNIT
+		if (PWONOFF == 4) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 810000;
+			NVRM_CPU1_OFF_PENDING_MS = 500;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 230000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 320000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 630000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 40000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 15000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 910;
+			NVRM_AP20_LOW_CPU_MV = 760;
+#endif
+		} else if (PWONOFF == 5) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 810000;
+			NVRM_CPU1_OFF_PENDING_MS = 400;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 220000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 310000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 620000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 30000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 12000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 895;
+			NVRM_AP20_LOW_CPU_MV = 750;
+#endif
+		} else if (PWONOFF == 6) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 1015000;
+			NVRM_CPU1_OFF_PENDING_MS = 200;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 200000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 300000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 600000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 10000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 12000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 880;
+			NVRM_AP20_LOW_CPU_MV = 740;
+#endif
+		} else if ((PWONOFF == 0) && (NITROONOFF != 1)) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 810000;
+			NVRM_CPU1_OFF_PENDING_MS = 200;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 240000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 380000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 680000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 50000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 18000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 925;
+			NVRM_AP20_LOW_CPU_MV = 770;
+#endif
+		}
+#endif // OTF_PSNIT
+
+			cpu_policy->user_policy.governor = cpu_policy->governor;
+			out:
+			cpufreq_cpu_put(cpu_policy);
 	}
 }
 
-static void powersave_late_resume(struct early_suspend *handler)
-{
+static void powersave_late_resume(struct early_suspend *handler) {
 	int cpu;
-
 	for_each_online_cpu(cpu) {
 		struct cpufreq_policy *cpu_policy, new_policy;
-
 		cpu_policy = cpufreq_cpu_get(cpu);
 		if (!cpu_policy)
 			continue;
 		if (cpufreq_get_policy(&new_policy, cpu))
 			goto out;
-		new_policy.max = prev_max_freq;
-		new_policy.min = prev_min_freq;
-		printk(KERN_INFO
-			"%s: set cpu%d freq in the %u-%u KHz range\n",
-			__func__, cpu, new_policy.min, new_policy.max);
-		__cpufreq_set_policy(cpu_policy, &new_policy);
-		cpu_policy->user_policy.policy = cpu_policy->policy;
-		cpu_policy->user_policy.governor = cpu_policy->governor;
-out:
-		cpufreq_cpu_put(cpu_policy);
+			new_policy.max = oldmaxclock;
+			new_policy.min = oldminclock;
+			__cpufreq_set_policy(cpu_policy, &new_policy);
+			cpu_policy->user_policy.policy = cpu_policy->policy;
+			//extern int USE_FG;
+#ifdef CONFIG_OTF_PSNIT
+		if (PWONOFF == 1) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 810000;
+			NVRM_CPU1_OFF_PENDING_MS = 500;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 230000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 320000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 630000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 40000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 15000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 910;
+			NVRM_AP20_LOW_CPU_MV = 760;
+#endif
+		} else if (PWONOFF == 2) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 810000;
+			NVRM_CPU1_OFF_PENDING_MS = 400;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 220000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 310000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 620000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 30000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 12000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 895;
+			NVRM_AP20_LOW_CPU_MV = 750;
+#endif
+		} else if (PWONOFF == 3) {
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 1015000;
+			NVRM_CPU1_OFF_PENDING_MS = 200;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 210000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 300000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 610000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 10000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 12000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 880;
+			NVRM_AP20_LOW_CPU_MV = 740;
+#endif
+		} else if (NITROONOFF == 1) {
+			PWONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = 750000;
+			NVRM_CPU1_OFF_PENDING_MS = 900;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = 250000;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = 390000;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = 700000;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = 50000;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = 18000;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = 925;
+			NVRM_AP20_LOW_CPU_MV = 770;
+#endif
+		} else if ((PWONOFF == 4) || (PWONOFF == 5) || (PWONOFF == 6)) { //applying powersave 4,5,6 for screen off purposes only, restoring normal to screen wakeup
+			NITROONOFF = 0;
+#ifdef CONFIG_OTF_CPU1
+			NVRM_CPU1_ON_MIN_KHZ = oldmincpu1on;
+			NVRM_CPU1_OFF_PENDING_MS = oldpadms;
+#endif
+#ifdef CONFIG_OTF_AVP
+			AVPFREQ = oldavpfreq;
+#endif
+#ifdef CONFIG_OTF_GPU
+			GPUFREQ = oldgpufreq;
+#endif
+#ifdef CONFIG_OTF_VDE
+			VDEFREQ = oldvdefreq;
+#endif
+#ifdef CONFIG_OTF_DDR2MIN
+			NVRM_AP20_DDR2_MIN_KHZ = oldddr2;
+#endif
+#ifdef CONFIG_OTF_LPDDR2
+			NVRM_AP20_LPDDR2_MIN_KHZ = oldlpddr2;
+#endif
+#ifdef CONFIG_OTF_AP20LC
+			NVRM_AP20_LOW_CORE_MV = oldcoremv;
+			NVRM_AP20_LOW_CPU_MV = oldlowcpu;
+#endif
+		}
+#endif // OTF_PSNIT
+
+			cpu_policy->user_policy.governor = cpu_policy->governor;
+			out:
+			cpufreq_cpu_put(cpu_policy);
 	}
 }
 
@@ -2198,8 +2524,8 @@ static struct early_suspend _powersave_early_suspend = {
 	.resume = powersave_late_resume,
 	.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
 };
+#endif // OTF_MAXSCOFF
 
-#endif // CONFIG_CPUFREQ_SCROFF_LIMIT
 
 static int __init cpufreq_core_init(void)
 {
@@ -2215,15 +2541,12 @@ static int __init cpufreq_core_init(void)
 		init_rwsem(&per_cpu(cpu_policy_rwsem, cpu));
 	}
 
-	cpufreq_global_kobject = kobject_create_and_add("cpufreq",
-						&cpu_sysdev_class.kset.kobj);
+	cpufreq_global_kobject = kobject_create_and_add("cpufreq", &cpu_sysdev_class.kset.kobj);
 	BUG_ON(!cpufreq_global_kobject);
 
-#ifdef CONFIG_CPUFREQ_SCROFF_LIMIT
-
-	register_early_suspend(&_powersave_early_suspend);
-
-#endif // CONFIG_CPUFREQ_SCROFF_LIMIT
+#ifdef CONFIG_OTF_MAXSCOFF
+register_early_suspend(&_powersave_early_suspend);
+#endif
 
 	return 0;
 }
