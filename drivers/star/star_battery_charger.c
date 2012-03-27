@@ -34,10 +34,6 @@
 #include <linux/time.h>
 #include <linux/rtc.h>
 
-#ifdef CONFIG_OTF_BATTPROT
-#include <linux/spica.h>
-#endif
-
 #include "nvcommon.h"
 #include "nvos.h"
 #include "nvrm_pmu.h"
@@ -220,7 +216,7 @@ typedef enum {
 
 //20100609, , Charger Code [START]
 typedef enum {
-	CHG_IC_DEFAULT_MODE=0,    		/* 0  */
+	CHG_IC_DEFAULT_MODE=0,			/* 0  */
 	CHG_IC_TA_MODE,
 	CHG_IC_USB_LO_MODE,
 	CHG_IC_FACTORY_MODE,
@@ -388,6 +384,7 @@ typedef struct tegra_battery_dev {
 	//20100824, , get capacity using battery voltage for demo [END]
 	//NvU32	BatteryLifeTime;
 	//NvU32	BatteryMahConsumed;
+
 	NvU32	ACLineStatus;
 	NvU32	battery_poll_interval;
 	NvBool	present;
@@ -395,6 +392,7 @@ typedef struct tegra_battery_dev {
 	at_comm_status	at_comm_want;
 	NvBool	at_comm_ready;
 #endif // STAR_BATTERY_AT_COMMAND
+
 	NvU32	old_alarm_sec;
 	NvU32	old_checkbat_sec;
 	NvU32	last_cbc_time;
@@ -2197,7 +2195,7 @@ static void charger_control_with_battery_temp(void)
 		{
 			case POWER_SUPPLY_HEALTH_GOOD:
 			{
-				if (batt_dev->batt_temp >= 500)
+				if (batt_dev->batt_temp >= 550)
 				{
 					// Deactivate Charger : Battery Critical Overheat
 					batt_dev->batt_health = POWER_SUPPLY_HEALTH_CRITICAL_OVERHEAT;
@@ -2207,11 +2205,6 @@ static void charger_control_with_battery_temp(void)
 						batt_dev->charger_setting_chcomp = charging_ic->status;
 						charging_ic_deactive_for_rechrge();
 						batt_dev->charger_state_machine = CHARGER_STATE_SHUTDOWN;
-						// Overheat OTF protection
-#ifdef CONFIG_OTF_BATTPROT
-						PWONOFF = 3;
-						SCREENOFFFREQ = 324000;
-#endif
 					}
 				}
 				else if ((batt_dev->batt_temp >= 450) && (batt_dev->batt_temp < 550))
@@ -2230,10 +2223,6 @@ static void charger_control_with_battery_temp(void)
 							batt_dev->charger_setting_chcomp = charging_ic->status;
 							batt_dev->charger_state_machine = CHARGER_STATE_CHARGE;
 							charging_ic_active_for_recharge(CHG_IC_DEFAULT_MODE);
-#ifdef CONFIG_OTF_BATTPROT
-							PWONOFF = 3;
-							SCREENOFFFREQ = 503000;
-#endif
 						}
 					}
 				}
@@ -2251,16 +2240,12 @@ static void charger_control_with_battery_temp(void)
 				}
 				else
 					batt_dev->batt_health = POWER_SUPPLY_HEALTH_GOOD;
-#ifdef CONFIG_OTF_BATTPROT
-					PWONOFF = 0;
-					SCREENOFFFREQ = 503000;
-#endif
 			}
 			break;
 
 			case POWER_SUPPLY_HEALTH_OVERHEAT:
 			{
-				if (batt_dev->batt_temp >= 500)
+				if (batt_dev->batt_temp >= 550)
 				{
 					// Deactivate Charger : Battery Critical Overheat
 					batt_dev->batt_health = POWER_SUPPLY_HEALTH_CRITICAL_OVERHEAT;
@@ -2270,10 +2255,6 @@ static void charger_control_with_battery_temp(void)
 						batt_dev->charger_setting_chcomp = charging_ic->status;
 						charging_ic_deactive_for_rechrge();
 						batt_dev->charger_state_machine = CHARGER_STATE_SHUTDOWN;
-#ifdef CONFIG_OTF_BATTPROT
-						PWONOFF = 3;
-						SCREENOFFFREQ = 324000;
-#endif
 					}
 				}
 				else if (batt_dev->batt_temp <= 420)
@@ -2291,25 +2272,17 @@ static void charger_control_with_battery_temp(void)
 						{
 							batt_dev->charger_state_machine = CHARGER_STATE_CHARGE;
 							charging_ic_active_for_recharge(batt_dev->charger_setting_chcomp);
-#ifdef CONFIG_OTF_BATTPROT
-							PWONOFF = 2;
-							SCREENOFFFREQ = 412000;
-#endif
 						}
 					}
 				}
 				else
 					batt_dev->batt_health = POWER_SUPPLY_HEALTH_OVERHEAT;
-#ifdef CONFIG_OTF_BATTPROT
-					PWONOFF = 0;
-					SCREENOFFFREQ = 503000;
-#endif
 			}
 			break;
 
 			case POWER_SUPPLY_HEALTH_CRITICAL_OVERHEAT:
 			{
-				if (batt_dev->batt_temp <= 490)
+				if (batt_dev->batt_temp <= 520)
 				{
 					if ( charging_ic->status != CHG_IC_DEACTIVE_MODE )
 					{
@@ -2324,19 +2297,11 @@ static void charger_control_with_battery_temp(void)
 						{
 							batt_dev->charger_state_machine = CHARGER_STATE_CHARGE;
 							charging_ic_active_for_recharge(CHG_IC_DEFAULT_MODE);
-#ifdef CONFIG_OTF_BATTPROT
-							PWONOFF = 2;
-							SCREENOFFFREQ = 412000;
-#endif
 						}
 					}
 				}
 				else
 					batt_dev->batt_health = POWER_SUPPLY_HEALTH_CRITICAL_OVERHEAT;
-#ifdef CONFIG_OTF_BATTPROT
-					PWONOFF = 0;
-					SCREENOFFFREQ = 503000;
-#endif
 			}
 			break;
 
@@ -3597,3 +3562,4 @@ static void __exit tegra_battery_exit(void)
 module_init(tegra_battery_init);
 module_exit(tegra_battery_exit);
 MODULE_DESCRIPTION("Star Battery Charger Driver");
+

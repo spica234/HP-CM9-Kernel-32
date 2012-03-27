@@ -12,7 +12,7 @@ static atomic_t autogroup_seq_nr;
 static void __init autogroup_init(struct task_struct *init_task)
 {
 	autogroup_default.tg = &init_task_group;
-	init_task_group.autogroup = &autogroup_default;
+	root_task_group.autogroup = &autogroup_default;
 	kref_init(&autogroup_default.kref);
 	init_rwsem(&autogroup_default.lock);
 	init_task->signal->autogroup = &autogroup_default;

@@ -794,6 +794,7 @@ static NvOdmWakeupPadInfo s_NvOdmWakeupPadInfo[] =
     {NV_FALSE, 28, NvOdmWakeupPadPolarity_Low},     // Wake Event 28 - gp3_pq[6] (KB_ROW6)
     {NV_FALSE, 29, NvOdmWakeupPadPolarity_Low},     // Wake Event 29 - gp3_pq[7] (KB_ROW6)
     {NV_FALSE, 30, NvOdmWakeupPadPolarity_High},    // Wake Event 30 - dap1_dout (DAP1_DOUT)
+{NV_TRUE,  31, NvOdmWakeupPadPolarity_AnyEdge},
 };
 #else
 #error STAR_HW not assigned
@@ -928,21 +929,21 @@ static const NvOdmQuerySpiIdleSignalState s_NvOdmQuerySpiIdleSignalStateLevel[] 
 	{NV_FALSE, NvOdmQuerySpiSignalMode_1, NV_FALSE} // Spi 1 
 }; 
 
-const NvOdmQuerySpiIdleSignalState *
-NvOdmQuerySpiGetIdleSignalState(
-	NvOdmIoModule OdmIoModule,
-	NvU32 ControllerId)
-{
-	if (OdmIoModule == NvOdmIoModule_Spi)
+const NvOdmQuerySpiIdleSignalState * 
+NvOdmQuerySpiGetIdleSignalState( 
+	NvOdmIoModule OdmIoModule, 
+	NvU32 ControllerId) 
+{ 
+	if (OdmIoModule == NvOdmIoModule_Spi) 
 	{ 
-		if (ControllerId == 0)
-			return &s_NvOdmQuerySpiIdleSignalStateLevel[0];
+		if (ControllerId == 0) 
+			return &s_NvOdmQuerySpiIdleSignalStateLevel[0]; 
 #ifdef CONFIG_MACH_STAR_TMUS
-		else if (ControllerId == 1)
-			return &s_NvOdmQuerySpiIdleSignalStateLevel[0];
+		else if (ControllerId == 1) 
+			return &s_NvOdmQuerySpiIdleSignalStateLevel[0]; 
 #endif
 	} 
-	return NULL;
+	return NULL; 
 } 
 //20101204-1, , NVIDIA's patch for setting signal level during idle state [END]
 
@@ -1431,6 +1432,7 @@ const NvOdmGpioWakeupSource *NvOdmQueryGetWakeupSources(NvU32 *pCount)
  */
 NvU32 NvOdmQueryMemSize(NvOdmMemoryType MemType)
 {
+    
     switch (MemType)
     {
         // NOTE:
@@ -1461,18 +1463,18 @@ NvU32 NvOdmQueryMemSize(NvOdmMemoryType MemType)
 }
 
 #define ONE_MB	0x00100000
-#ifdef CONFIG_OTF_GPURAM
-#include <linux/spica.h>
 NvU32 NvOdmQueryCarveoutSize(void)
 {
-    return (GPURAMSIZE*ONE_MB);
-}
+    //20100802  increase carveout memory
+#if 0
+    return (CONFIG_GPU_MEM_CARVEOUT_SZ*ONE_MB);
 #else
-NvU32 NvOdmQueryCarveoutSize(void)
-{
-    return (128*ONE_MB);
-}
+    extern unsigned int nvmap_carveout_size;
+    /* carveout size is controled by the nvmem boot param. nvmem=128M is default for LG Star */
+    printk(KERN_INFO "%s: nvmap_carveout_size=%d\n", __func__, nvmap_carveout_size);
+    return nvmap_carveout_size;
 #endif
+}
 
 NvU32 NvOdmQuerySecureRegionSize(void)
 {

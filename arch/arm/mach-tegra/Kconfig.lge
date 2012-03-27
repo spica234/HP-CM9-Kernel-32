@@ -37,7 +37,7 @@ config GPU_MEM_CARVEOUT_SZ
 	default 128
 
 config STOCK_VOLTAGE
-	bool "stock voltage values"
+	bool "Stock voltage values"
 	depends on MACH_STAR
 	default y
 
@@ -74,7 +74,7 @@ config OTF_SCMV
 
 config OTF_AP20LC
 	bool "OTF AP20 Low Corners voltages"
-	default y
+	default n
 
 config OTF_CPU1
 	bool "OTF CPU Second Core activation"
@@ -191,3 +191,4 @@ config  LPRINTK_ALL
 
 endif # LPRINTK
 source "drivers/star/Kconfig"
+

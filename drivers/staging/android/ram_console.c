@@ -441,7 +441,6 @@ static int ram_console_driver_probe(struct platform_device *pdev)
        printk ("ram console : ram_console virtual addr = 0x%x \n", buffer);
        printk ("ram console : reserved_buffer virtual = 0x%x \n", reserved_buffer);
        printk ("ram console : reserved_buffer physical= 0x%x \n", reserved_start);
- 
 #endif
 
 	return ram_console_init(buffer, buffer_size, NULL/* allocate */);
@@ -479,9 +478,9 @@ void write_screen_shot_reserved_buffer(unsigned char *buf, size_t len)
 void read_screen_shot_reserved_buffer(unsigned char *buf, size_t len)
 {
 
-        copy_to_user(buf ,reserved_buffer+32,800*480*3);	
+	copy_to_user(buf ,reserved_buffer+32,800*480*3);
 	//memcpy(buf, reserved_buffer+32, 800*480*3);
-	
+
 }
 EXPORT_SYMBOL_GPL(write_screen_shot_reserved_buffer);
 EXPORT_SYMBOL_GPL(read_screen_shot_reserved_buffer);
@@ -561,4 +560,5 @@ console_initcall(ram_console_early_init);
 postcore_initcall(ram_console_module_init);
 #endif
 late_initcall(ram_console_late_init);
+
 

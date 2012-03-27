@@ -89,7 +89,7 @@
 #define NICE_TO_PRIO(nice)	(MAX_RT_PRIO + (nice) + 20)
 #define PRIO_TO_NICE(prio)	((prio) - MAX_RT_PRIO - 20)
 #define TASK_NICE(p)		PRIO_TO_NICE((p)->static_prio)
-
+#define CONFIG_SMP
 /*
  * 'User priority' is the nice value converted to something we
  * can work with better when scaling various scheduler parameters,
@@ -9808,7 +9808,7 @@ void __init sched_init(void)
 			global_rt_period(), global_rt_runtime());
 #endif /* CONFIG_RT_GROUP_SCHED */
 
-#ifdef CONFIG_CGROUP_SCHED
+#if defined CONFIG_CGROUP_SCHED && defined CONFIG_SMP
 	list_add(&init_task_group.list, &task_groups);
 	INIT_LIST_HEAD(&init_task_group.children);
 	autogroup_init(&init_task);
@@ -10272,7 +10272,7 @@ static inline void unregister_rt_sched_group(struct task_group *tg, int cpu)
 }
 #endif /* CONFIG_RT_GROUP_SCHED */
 
-#ifdef CONFIG_CGROUP_SCHED
+#if defined CONFIG_CGROUP_SCHED && defined CONFIG_SMP
 static void free_sched_group(struct task_group *tg)
 {
 	free_fair_sched_group(tg);
