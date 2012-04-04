@@ -429,6 +429,7 @@ static inline void vfp_pm_init(void) { }
  * Synchronise the hardware VFP state of a thread other than current with the
  * saved one. This function is used by the ptrace mechanism.
  */
+#define CONFIG_SMP //redefining SMP
 #ifdef CONFIG_SMP
 void vfp_sync_state(struct thread_info *thread)
 {
