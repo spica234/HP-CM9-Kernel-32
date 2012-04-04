@@ -325,12 +325,12 @@ CHECK		= sparse
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-MODFLAGS	= -DMODULE -O2 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant
+MODFLAGS	= -DMODULE -O3 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant floop-optimize
 CFLAGS_MODULE   = $(MODFLAGS) 
 AFLAGS_MODULE   = $(MODFLAGS)
 LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-CFLAGS_KERNEL	= -O2 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant
-AFLAGS_KERNEL	= -O2 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant
+CFLAGS_KERNEL	= -O3 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant floop-optimize
+AFLAGS_KERNEL	= -O3 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant floop-optimize
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 # 20100705, ,[LGE_START]
@@ -529,7 +529,7 @@ all: vmlinux
 ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
 KBUILD_CFLAGS	+= -Os
 else
-KBUILD_CFLAGS	+= -O2
+KBUILD_CFLAGS	+= -O3 -mtune=cortex-a9 -march=armv7-a -mthumb-interwork -mfloat-abi=hard -mfpu=vfpv3-d16 -ftree-vectorize -ffast-math -freciprocal-math -funsafe-math-optimizations -fsingle-precision-constant floop-optimize
 endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
