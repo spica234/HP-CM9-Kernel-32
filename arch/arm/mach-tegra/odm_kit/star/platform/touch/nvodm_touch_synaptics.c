@@ -489,11 +489,16 @@ static NvBool Synaptics_GetSamples (Synaptics_TouchDevice* hTouch, NvOdmTouchCoo
 				curr_ts_data.X_position[i] = (int)TS_SNTS_GET_X_POSITION(ts_reg_data.fingers_data[i][0], ts_reg_data.fingers_data[i][2]);
 				curr_ts_data.Y_position[i] = (int)TS_SNTS_GET_Y_POSITION(ts_reg_data.fingers_data[i][1], ts_reg_data.fingers_data[i][2]);
 				//  2011/06/22 GB bug start
-				if(curr_ts_data.X_position[i] == 0)
-					curr_ts_data.X_position[i] = 1;
-				if(curr_ts_data.Y_position[i] == 0)
-					curr_ts_data.Y_position[i] = 1;
+				//if(curr_ts_data.X_position[i] == 0)
+				//	curr_ts_data.X_position[i] = 1;
+				//if(curr_ts_data.Y_position[i] == 0)
+				//	curr_ts_data.Y_position[i] = 1;
 				//  2011/06/22 end    
+				// the above was a work-around of incorrect behavior in LatinIME where far left key didn't register
+				// we don't have this issue on ICS any more
+				if((LGE_TOUCH_RESOLUTION_Y <= curr_ts_data.Y_position[i]) && (curr_ts_data.Y_position[i] < TOUCH_LCD_ACTIVE_AREA_Y))
+					curr_ts_data.Y_position[i] = LGE_TOUCH_RESOLUTION_Y - 1;
+
 				if ((((ts_reg_data.fingers_data[i][3] & 0xf0) >> 4) - (ts_reg_data.fingers_data[i][3] & 0x0f)) > 0)
 					curr_ts_data.width[i] = (ts_reg_data.fingers_data[i][3] & 0xf0) >> 4;
 				else
@@ -1109,8 +1114,11 @@ NvBool Synaptics_Open (NvOdmTouchDeviceHandle* hDevice, NvOdmOsSemaphoreHandle* 
     NvU32 i;
     NvU32 found = 0;
 
-	NvU16 SENSOR_MAX_X_POSITION = LGE_TOUCH_RESOLUTION_X;
-    NvU16 SENSOR_MAX_Y_POSITION = LGE_TOUCH_RESOLUTION_Y;  
+    // MAX_*_POSITION had been increased to address wrong width calculation in CM7
+    // ICS doesn't have this issue any more
+    // now we report the correct value
+    NvU16 SENSOR_MAX_X_POSITION = LGE_TOUCH_RESOLUTION_X-1;
+    NvU16 SENSOR_MAX_Y_POSITION = LGE_TOUCH_RESOLUTION_Y-1;
 
     const NvOdmPeripheralConnectivity *pConnectivity = NULL;
 
